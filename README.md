@@ -5,3 +5,6 @@ Pattern matching game where I attempted to make make states of some variables re
 
 ## What I learnt
 How to use utilize sleep and async to block and disable some UI element from receiving events from users.
+
+## Demo
+![Game demo](./SimonGameDemo.gif)
