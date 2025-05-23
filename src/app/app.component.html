@@ -3,7 +3,7 @@
 </header>
 <main>
     <div class="grid-cell-container">
-        @for (cell of cells; track cell.id; let cellPos = $index){
+        @for (cell of cells(); track cell.id; let cellPos = $index){
          <div
          class="cell"
           [ngStyle]="
@@ -11,30 +11,30 @@
               'background-color':cell.backgroundColor,
               'box-shadow': cell.selected ? cell.backgroundColor + ' 0 0 20px 1px' : null
             }"
-            (click)="playerTurn && !allCellsDisabled ? userClick(cellPos) : null"
+            (click)="playerTurn() && !allCellsDisabled() ? userClick(cellPos) : null"
             >
           </div>
         }
     </div>
-    <button [disabled]="gameStart" style="margin-top: 1rem;" (click)="!gameStart ? onGameStart() : null">start</button>
+    <button [disabled]="gameStart()" style="margin-top: 1rem;" (click)="!gameStart() ? onGameStart() : null">start</button>
     <div *ngIf="gameStart">
-      @if (playerTurn){
+      @if (playerTurn()){
         <p>Player move</p>
       }
       @else {
-        @if (botTurn){
+        @if (botTurn()){
           <p>Please wait until pc finishes</p>
         }
-        @else if (gameFinished) {
+        @else if (gameFinished()) {
           <p>Game finishes</p>
         }
       }
     </div>
     <div>
-      @if (displayMove){
+      @if (displayMove()){
         <div>
           <h3>Player's move</h3>
-          <div style="display: inline;" *ngFor="let cell of playerPattern; let cellPos = index; let last = last">
+          <div style="display: inline;" *ngFor="let cell of playerPattern(); let cellPos = index; let last = last">
             @if(!last){
               <p style="display: inline;"><span [ngStyle]="{'color': cell.backgroundColor}">{{cell.backgroundColor}}</span>-></p>
             }
@@ -45,7 +45,7 @@
         </div>
         <div>
           <h3>Bot's moves</h3>
-          <div style="display: inline;" *ngFor="let cell of botMovement; let cellPos = index; let last = last">
+          <div style="display: inline;" *ngFor="let cell of botMovement(); let cellPos = index; let last = last">
             @if(!last){
               <p style="display: inline;"><span [ngStyle]="{'color': cell.backgroundColor}">{{cell.backgroundColor}}</span>-></p>
             }

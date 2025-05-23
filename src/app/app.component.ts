@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal, WritableSignal } from '@angular/core';
 import { colorConstants, NUM_CELLS } from './gameConstant';
 import { Cell } from './Cell';
 import { v4 as uuidv4 } from 'uuid';
@@ -13,94 +13,135 @@ import { v4 as uuidv4 } from 'uuid';
 })
 export class AppComponent implements OnInit {
   title = 'simonGame';
-  botMovement: Cell[] = [];
-  playerPattern: Cell[] = [];
-  playerTurn: boolean = false;
-  botTurn: boolean = true;
-  displayMove: boolean = false;
-  allCellsDisabled: boolean = true;
-  gameFinished: boolean = false;
-  gameStart: boolean = false;
-  cells: Cell[] = [];
+  botMovement: WritableSignal<Cell[]> = signal([]);
+  playerPattern: WritableSignal<Cell[]> = signal([]);
+  playerTurn: WritableSignal<boolean> = signal(false);
+  botTurn: WritableSignal<boolean> = signal(true);
+  displayMove: WritableSignal<boolean> = signal(false);
+  allCellsDisabled: WritableSignal<boolean> = signal(true);
+  gameFinished: WritableSignal<boolean> = signal(false);
+  gameStart: WritableSignal<boolean> = signal(false);
+  cells: WritableSignal<Cell[]> = signal([]);
   async ngOnInit(): Promise<any> {
     this.initGameState();
   }
 
   private initGameState(): void {
-    this.cells.push({
+    const curCellsState = this.cells();
+    curCellsState.push({
       id: uuidv4(),
       backgroundColor: colorConstants.RED,
       selected: false,
     });
-    this.cells.push({
+    curCellsState.push({
       id: uuidv4(),
       backgroundColor: colorConstants.YELLOW,
       selected: false,
     });
-    this.cells.push({
+    curCellsState.push({
       id: uuidv4(),
       backgroundColor: colorConstants.PURPLE,
       selected: false,
     });
-    this.cells.push({
+    curCellsState.push({
       id: uuidv4(),
       backgroundColor: colorConstants.BLUE,
       selected: false,
     });
+    this.cells.set(curCellsState);
   }
 
-  async onGameStart(): Promise<any>{
-    this.playerPattern = [];
-    this.botMovement = [];
-    this.gameStart = true;
-    this.displayMove = false;
+  async onGameStart(): Promise<void> {
+    this.newGameResetState();
     await this.botMove();
   }
 
-  generateRandomMove(): void {
-    this.botMovement = [];
-    for (let i = 0; i < NUM_CELLS; i++) {
-      const randMove: number = Math.floor(Math.random() * NUM_CELLS);
-      this.botMovement.push(this.cells[randMove]);
-    }
+  newGameResetState(): void {
+    this.playerPattern.set([]);
+    this.botMovement.set([]);
+    this.gameStart.set(true);
+    this.gameFinished.set(false);
+    this.displayMove.set(false);
   }
 
-  sleep(ms: number): Promise<any> {
+  generateRandomMove(): Cell[] {
+    let curBotMovement: Cell[] = this.botMovement();
+    let curCells: Cell[] = this.cells();
+    curBotMovement = [];
+    for (let i = 0; i < NUM_CELLS; i++) {
+      const randMove: number = Math.floor(Math.random() * NUM_CELLS);
+      curBotMovement.push(curCells[randMove]);
+    }
+    return curBotMovement;
+  }
+
+  sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   async botMove() {
-    this.botTurn = true;
-    this.generateRandomMove();
-    for (let i = 0; i < this.botMovement.length; i++) {
-      const curMove: Cell = this.botMovement[i];
-      console.log(curMove);
+    await this.botMakeMovesWithRandCells();
+    await this.sleep(1000);
+    this.playerTakeTurn();
+  }
+
+  private async botMakeMovesWithRandCells(): Promise<void> {
+    let curCells = this.cells();
+    let curRandMoves = this.generateRandomMove();
+    this.botMovement.set([...curRandMoves]);
+    for (let i = 0; i < curCells.length; i++) {
+      const curMove: Cell = curRandMoves[i];
       curMove.selected = true;
+      this.cells.set([...curCells]);
       await this.sleep(2000);
       curMove.selected = false;
+      this.cells.set([...curCells]);
       await this.sleep(1000);
     }
+  }
 
-    await this.sleep(1000);
-    this.playerTurn = true;
-    this.allCellsDisabled = false;
-    this.botTurn = false;
+  private playerTakeTurn(): void {
+    this.playerTurn.set(true);
+    this.allCellsDisabled.set(false);
+    this.botTurn.set(false);
   }
 
   async userClick(cellPos: number) {
-    this.cells[cellPos].selected = true;
-    this.playerPattern.push(this.cells[cellPos]);
-    this.allCellsDisabled = true;
+    const curCells = this.cells();
+    const curPlayerPatterns = this.playerPattern();
+    let curAllCellDisabledState = this.allCellsDisabled();
+    curCells[cellPos].selected = true;
+    curPlayerPatterns.push(curCells[cellPos]);
+    curAllCellDisabledState = true;
+    this.cells.set([...curCells]);
+    this.playerPattern.set([...curPlayerPatterns]);
+    this.allCellsDisabled.set(curAllCellDisabledState);
     await this.sleep(1000);
-    this.allCellsDisabled = false;
-    this.cells[cellPos].selected = false;
-    if (this.playerPattern.length === NUM_CELLS) {
-      this.allCellsDisabled = true;
-      this.playerTurn = false;
-      this.gameFinished = true;
+    curAllCellDisabledState = false;
+    this.allCellsDisabled.set(curAllCellDisabledState);
+    curCells[cellPos].selected = false;
+    this.cells.set([...curCells]);
+    await this.gameOverToDisplayStat();
+  }
+
+  private async gameOverToDisplayStat(): Promise<void> {
+    const curPlayerPatterns = this.playerPattern();
+    if (curPlayerPatterns.length === NUM_CELLS) {
+      this.disablePlayerClicks();
+      this.playerPattern.set([...curPlayerPatterns]);
       await this.sleep(2000);
-      this.displayMove = true;
-      this.gameStart = false;
+      this.concludeGame();
     }
+  }
+
+  private disablePlayerClicks(): void {
+    this.allCellsDisabled.set(true);
+    this.playerTurn.set(false);
+    this.gameFinished.set(true);
+  }
+
+  private concludeGame(): void {
+    this.displayMove.set(true);
+    this.gameStart.set(false);
   }
 }
